@@ -14,6 +14,11 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: Material.002
     second: {fileID: 2100000, guid: 9f54e4d605e814f86b8758995650c686, type: 2}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Building
+    second: {fileID: 2800000, guid: fa7211ab762314231bb6819993b3b01f, type: 3}
   materials:
     materialImportMode: 2
     materialName: 0
