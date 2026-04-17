@@ -1,19 +1,26 @@
 using UnityEngine;
 using UnityEngine.Rendering;
-using System.Collections; // Required for Coroutines (Delays)
+using System.Collections;
 
 public class VRLightSwitch : MonoBehaviour
 {
     [System.Serializable]
     public struct ExtraObjectSwap
     {
-        public string label;
-        public MeshRenderer mesh;
-        public int materialIndex;
-        public Material dayMat;
-        public Material nightMat;
-        public Light associatedLight;
-        public float delay; // How many seconds to wait?
+        public string label;          // Name for organization
+        public MeshRenderer mesh;    // The object (e.g., typeMesh1)
+        public int materialIndex;    // Slot index (0, 1, 2...)
+        public Material dayMat;      // Off material
+        public Material nightMat;    // On/Glow material
+        public float delay;          // Time before swapping
+    }
+
+    [System.Serializable]
+    public struct UltimateLight
+    {
+        public string label;          // Name for organization
+        public Light lightSource;    // The Point/Spot Light component
+        public float delay;          // Time before turning on/off
     }
 
     [Header("Lighting & Sky")]
@@ -21,55 +28,45 @@ public class VRLightSwitch : MonoBehaviour
     public Material daySkybox;
     public Material nightSkybox;
 
-    [Header("Original Logic: TEXT & FRAME")]
-    public MeshRenderer textMesh; 
-    public Material textE1_On;
-    public Material textE1_Off;
-    public MeshRenderer frameMesh; 
-    public Material frameE0_On;
-    public Material frameE0_Off;
-    public Material frameE1_On;
-    public Material frameE1_Off;
-
-    [Header("--- ULTIMATE LIGHTING SPACE ---")]
+    [Header("--- ULTIMATE OBJECTS (Materials) ---")]
     public ExtraObjectSwap[] ultimateObjects;
 
-    // This is the function your button calls
+    [Header("--- ULTIMATE LIGHTS (Real Lighting) ---")]
+    public UltimateLight[] ultimateLights;
+
     public void ToggleSun()
     {
         if (sunLight == null) return;
-
-        // Start the process
         StartCoroutine(ToggleRoutine());
     }
 
     private IEnumerator ToggleRoutine()
     {
-        // 1. Flip Sun & Sky immediately
+        // 1. Immediate Environment Changes
         sunLight.enabled = !sunLight.enabled;
         bool isNight = !sunLight.enabled;
         RenderSettings.skybox = isNight ? nightSkybox : daySkybox;
 
-        // 2. Update the original Sign immediately
-        UpdateOriginalSign(isNight);
-
-        // 3. Loop through Ultimate Objects and handle their specific delays
+        // 2. Handle Mesh Swaps with their specific delays
         foreach (ExtraObjectSwap swap in ultimateObjects)
         {
-            // Start a separate mini-routine for each object so they don't block each other
             StartCoroutine(ApplyDelayedSwap(swap, isNight));
         }
 
-        // Refresh environment
+        // 3. Handle Ultimate Lights with their specific delays
+        foreach (UltimateLight uLight in ultimateLights)
+        {
+            StartCoroutine(ApplyDelayedLight(uLight, isNight));
+        }
+
+        // 4. Force global lighting refresh
         DynamicGI.UpdateEnvironment();
         yield return null;
     }
 
     private IEnumerator ApplyDelayedSwap(ExtraObjectSwap swap, bool isNight)
     {
-        // Wait for the specific delay time set in the Inspector
         yield return new WaitForSeconds(swap.delay);
-
         if (swap.mesh != null)
         {
             Material[] mats = swap.mesh.materials;
@@ -79,31 +76,14 @@ public class VRLightSwitch : MonoBehaviour
                 swap.mesh.materials = mats;
             }
         }
-
-        if (swap.associatedLight != null)
-        {
-            swap.associatedLight.enabled = isNight;
-        }
     }
 
-    private void UpdateOriginalSign(bool isNight)
+    private IEnumerator ApplyDelayedLight(UltimateLight uLight, bool isNight)
     {
-        if (textMesh != null)
+        yield return new WaitForSeconds(uLight.delay);
+        if (uLight.lightSource != null)
         {
-            Material[] textMats = textMesh.materials;
-            if (textMats.Length > 1)
-            {
-                textMats[1] = isNight ? textE1_On : textE1_Off;
-                textMesh.materials = textMats;
-            }
-        }
-
-        if (frameMesh != null)
-        {
-            Material[] frameMats = frameMesh.materials;
-            if (frameMats.Length > 0) frameMats[0] = isNight ? frameE0_On : frameE0_Off;
-            if (frameMats.Length > 1) frameMats[1] = isNight ? frameE1_On : frameE1_Off;
-            frameMesh.materials = frameMats;
+            uLight.lightSource.enabled = isNight;
         }
     }
 }
