@@ -7,20 +7,20 @@ public class VRLightSwitch : MonoBehaviour
     [System.Serializable]
     public struct ExtraObjectSwap
     {
-        public string label;          // Name for organization
-        public MeshRenderer mesh;    // The object (e.g., typeMesh1)
-        public int materialIndex;    // Slot index (0, 1, 2...)
-        public Material dayMat;      // Off material
-        public Material nightMat;    // On/Glow material
-        public float delay;          // Time before swapping
+        public string label;          
+        public MeshRenderer mesh;    
+        public int materialIndex;    
+        public Material dayMat;      
+        public Material nightMat;    
+        public float delay;          
     }
 
     [System.Serializable]
     public struct UltimateLight
     {
-        public string label;          // Name for organization
-        public Light lightSource;    // The Point/Spot Light component
-        public float delay;          // Time before turning on/off
+        public string label;          
+        public Light lightSource;    
+        public float delay;          
     }
 
     [Header("Lighting & Sky")]
@@ -28,11 +28,26 @@ public class VRLightSwitch : MonoBehaviour
     public Material daySkybox;
     public Material nightSkybox;
 
+    [Header("--- AUDIO SETTINGS ---")]
+    public AudioSource dayAudio;   // Drag your Day ambient sound here
+    public AudioSource nightAudio; // Drag your Night ambient sound here
+    public float audioFadeSpeed = 1.0f; // Seconds to fade in/out
+
     [Header("--- ULTIMATE OBJECTS (Materials) ---")]
     public ExtraObjectSwap[] ultimateObjects;
 
     [Header("--- ULTIMATE LIGHTS (Real Lighting) ---")]
     public UltimateLight[] ultimateLights;
+
+    void Start()
+    {
+        // Set initial audio volumes
+        if (dayAudio) dayAudio.volume = sunLight.enabled ? 1 : 0;
+        if (nightAudio) nightAudio.volume = sunLight.enabled ? 0 : 1;
+        
+        if (dayAudio && !dayAudio.isPlaying) dayAudio.Play();
+        if (nightAudio && !nightAudio.isPlaying) nightAudio.Play();
+    }
 
     public void ToggleSun()
     {
@@ -47,21 +62,44 @@ public class VRLightSwitch : MonoBehaviour
         bool isNight = !sunLight.enabled;
         RenderSettings.skybox = isNight ? nightSkybox : daySkybox;
 
-        // 2. Handle Mesh Swaps with their specific delays
+        // 2. Audio Transition
+        StartCoroutine(FadeAudio(isNight));
+
+        // 3. Handle Mesh Swaps
         foreach (ExtraObjectSwap swap in ultimateObjects)
         {
             StartCoroutine(ApplyDelayedSwap(swap, isNight));
         }
 
-        // 3. Handle Ultimate Lights with their specific delays
+        // 4. Handle Ultimate Lights
         foreach (UltimateLight uLight in ultimateLights)
         {
             StartCoroutine(ApplyDelayedLight(uLight, isNight));
         }
 
-        // 4. Force global lighting refresh
         DynamicGI.UpdateEnvironment();
         yield return null;
+    }
+
+    private IEnumerator FadeAudio(bool isNight)
+    {
+        float timer = 0;
+        float startDayVol = dayAudio ? dayAudio.volume : 0;
+        float startNightVol = nightAudio ? nightAudio.volume : 0;
+
+        float targetDayVol = isNight ? 0 : 1;
+        float targetNightVol = isNight ? 1 : 0;
+
+        while (timer < audioFadeSpeed)
+        {
+            timer += Time.deltaTime;
+            float percent = timer / audioFadeSpeed;
+
+            if (dayAudio) dayAudio.volume = Mathf.Lerp(startDayVol, targetDayVol, percent);
+            if (nightAudio) nightAudio.volume = Mathf.Lerp(startNightVol, targetNightVol, percent);
+            
+            yield return null;
+        }
     }
 
     private IEnumerator ApplyDelayedSwap(ExtraObjectSwap swap, bool isNight)
